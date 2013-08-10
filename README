@@ -1,0 +1,4 @@
+This project mainly contains teo parts:
+    1. Converts the covergroup construts of SystemVerilog into CNF
+    2. Use Simultaneous SAT algorithms to generate stimulus for the given DUV
+
