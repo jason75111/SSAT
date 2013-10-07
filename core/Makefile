@@ -1,4 +1,4 @@
-MROOT    = /home/RAID-0/guam/SSAT
+MROOT   = /home/RAID-0/guam/SSAT
 EXEC    = minisat
 DEPDIR  = mtl utils
 
