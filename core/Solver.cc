@@ -200,18 +200,18 @@ bool Solver::satisfied(const Clause& c) const{
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
 void Solver::cancelUntil(int level){
-  if(decisionLevel() > level){
-    for(int c = trail.size()-1; c >= trail_lim[level]; c--){
-      Var x  = var(trail[c]);
-      assigns [x] = l_Undef;
-      if(phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
-        polarity[x] = sign(trail[c]);
-      insertVarOrder(x); 
+    if(decisionLevel() > level){
+        for(int c = trail.size()-1; c >= trail_lim[level]; c--){
+            Var x  = var(trail[c]);
+            assigns [x] = l_Undef;
+            if(phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
+                polarity[x] = sign(trail[c]);
+            insertVarOrder(x); 
+        }
+        qhead = trail_lim[level];
+        trail.shrink(trail.size() - trail_lim[level]);
+        trail_lim.shrink(trail_lim.size() - level);
     }
-    qhead = trail_lim[level];
-    trail.shrink(trail.size() - trail_lim[level]);
-    trail_lim.shrink(trail_lim.size() - level);
-  }
 }
 
 
