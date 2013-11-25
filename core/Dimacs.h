@@ -33,16 +33,16 @@ namespace Minisat{
 
 template<class B, class Solver>
 static void readClause(B& in, Solver& S, vec<Lit>& lits){
-  int parsed_lit, var;
-  lits.clear();
-  for(;;){
-    parsed_lit = parseInt(in);
-    if(parsed_lit == 0) break;
-    var = abs(parsed_lit)-1;
-    while(var >= S.nVars()) 
-      S.newVar();
-    lits.push( (parsed_lit > 0) ? mkLit(var) : ~mkLit(var) );
-  }
+    int parsed_lit, var;
+    lits.clear();
+    for(;;){
+        parsed_lit = parseInt(in);
+        if(parsed_lit == 0) break;
+        var = abs(parsed_lit)-1;
+        while(var >= S.nVars()) 
+            S.newVar();
+        lits.push( (parsed_lit > 0) ? mkLit(var) : ~mkLit(var) );
+    }
 }
 
 template<class B, class Solver>

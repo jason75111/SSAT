@@ -76,20 +76,25 @@ int main(int argc, char** argv){
 #endif
     // Extra options:
     //
-    IntOption    verb   ("MAIN", "verb",   "Verbosity level (0=silent, 1=some, 2=more).", 0, IntRange(0, 2));
-    IntOption    cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
-    IntOption    mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
-    
+    IntOption    verb       ("MAIN", "verb",        "Verbosity level (0=silent, 1=some, 2=more).", 0, IntRange(0, 2));
+    IntOption    cpu_lim    ("MAIN", "cpu-lim",     "Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
+    IntOption    mem_lim    ("MAIN", "mem-lim",     "Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
+    IntOption    req_models ("MAIN", "req-model",   "The number of models required", 1, IntRange(1, 100));
+//    IntOption    bcp        ("MAIN", "bcp",         "Threshold value of BCPGuide hueristic", 0, IntRange(0, INT32_MAX));
+     
     parseOptions(argc, argv, true);
 
     Solver S;
     double initial_time = cpuTime();
 
-    S.verbosity = verb;
-    
+    S.verbosity       = verb;
+    S.required_models = req_models;
+//    S.BCPGuide_T      = bcp;
+
+//  fprintf(stderr, " S.BCPGuide_T = %d\n", S.BCPGuide_T);
+
     solver = &S;
-    // Use signal handlers that forcibly quit until the solver will be able to respond to
-    // interrupts:
+    // Use signal handlers that forcibly quit until the solver will be able to respond to interrupts:
     signal(SIGINT, SIGINT_exit);
     signal(SIGXCPU,SIGINT_exit);
 
@@ -143,8 +148,7 @@ int main(int argc, char** argv){
         printf("|                                                                             |\n"); 
     }
  
-    // Change to signal-handlers that will only notify the solver and allow it to terminate
-    // voluntarily:
+    // Change to signal-handlers that will only notify the solver and allow it to terminate voluntarily:
     signal(SIGINT, SIGINT_interrupt);
     signal(SIGXCPU,SIGINT_interrupt);
     
@@ -163,7 +167,24 @@ int main(int argc, char** argv){
     }
     
     vec<Lit> dummy; // Used to put some literal assumptions if needed
-    lbool ret = S.solveLimited(dummy);
+    lbool ret;
+    double solv_initial_time = cpuTime();
+
+    for(int i = 0; i < S.required_models; i++){
+        //printf("Solving model #%d\n", i+1);
+        ret = S.solveLimited(dummy);
+        if(ret != l_True){
+            printf("No more models, total number of models = %d\n", i);
+            break;
+        }
+        //S.printVarStat();
+        //printf("Number of conflicts = %d\n", (int)S.conflicts);
+        //printf("Number of conflicts = %d\n", S.bcp_conflict);
+    }
+    double end_time =  cpuTime();
+    printf("Diversity quality = %f\n", S.quality());
+    printf("Solving time      = %.2f s\n", end_time - solv_initial_time);
+
     if(S.verbosity > 0){
         printStats(S);
         printf("\n");

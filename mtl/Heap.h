@@ -41,8 +41,7 @@ class Heap {
     static inline int parent(int i) { return (i-1) >> 1; }
 
 
-    void percolateUp(int i)
-    {
+    void percolateUp(int i){
         int x  = heap[i];
         int p  = parent(i);
         
@@ -57,8 +56,7 @@ class Heap {
     }
 
 
-    void percolateDown(int i)
-    {
+    void percolateDown(int i){
         int x = heap[i];
         while (left(i) < heap.size()){
             int child = right(i) < heap.size() && lt(heap[right(i)], heap[left(i)]) ? right(i) : left(i);
@@ -72,73 +70,70 @@ class Heap {
     }
 
 
-  public:
-    Heap(const Comp& c) : lt(c) { }
+    public:
 
-    int  size      ()          const { return heap.size(); }
-    bool empty     ()          const { return heap.size() == 0; }
-    bool inHeap    (int n)     const { return n < indices.size() && indices[n] >= 0; }
-    int  operator[](int index) const { assert(index < heap.size()); return heap[index]; }
+        Heap(const Comp& c) : lt(c) { }
 
-
-    void decrease  (int n) { assert(inHeap(n)); percolateUp  (indices[n]); }
-    void increase  (int n) { assert(inHeap(n)); percolateDown(indices[n]); }
+        int  size      ()          const { return heap.size(); }
+        bool empty     ()          const { return heap.size() == 0; }
+        bool inHeap    (int n)     const { return n < indices.size() && indices[n] >= 0; }
+        int  operator[](int index) const { assert(index < heap.size()); return heap[index]; }
 
 
-    // Safe variant of insert/decrease/increase:
-    void update(int n)
-    {
-        if (!inHeap(n))
-            insert(n);
-        else {
-            percolateUp(indices[n]);
-            percolateDown(indices[n]); }
-    }
+        void decrease  (int n) { assert(inHeap(n)); percolateUp  (indices[n]); }
+        void increase  (int n) { assert(inHeap(n)); percolateDown(indices[n]); }
 
 
-    void insert(int n)
-    {
-        indices.growTo(n+1, -1);
-        assert(!inHeap(n));
-
-        indices[n] = heap.size();
-        heap.push(n);
-        percolateUp(indices[n]); 
-    }
-
-
-    int  removeMin()
-    {
-        int x            = heap[0];
-        heap[0]          = heap.last();
-        indices[heap[0]] = 0;
-        indices[x]       = -1;
-        heap.pop();
-        if (heap.size() > 1) percolateDown(0);
-        return x; 
-    }
+        // Safe variant of insert/decrease/increase:
+        void update(int n){
+            if (!inHeap(n))
+                insert(n);
+            else {
+                percolateUp(indices[n]);
+                percolateDown(indices[n]); }
+        }
 
 
-    // Rebuild the heap from scratch, using the elements in 'ns':
-    void build(vec<int>& ns) {
-        for (int i = 0; i < heap.size(); i++)
-            indices[heap[i]] = -1;
-        heap.clear();
+        void insert(int n){
+            indices.growTo(n+1, -1);
+            assert(!inHeap(n));
 
-        for (int i = 0; i < ns.size(); i++){
-            indices[ns[i]] = i;
-            heap.push(ns[i]); }
+            indices[n] = heap.size();
+            heap.push(n);
+            percolateUp(indices[n]); 
+        }
 
-        for (int i = heap.size() / 2 - 1; i >= 0; i--)
-            percolateDown(i);
-    }
 
-    void clear(bool dealloc = false) 
-    { 
-        for (int i = 0; i < heap.size(); i++)
-            indices[heap[i]] = -1;
-        heap.clear(dealloc); 
-    }
+        int removeMin(){
+            int x            = heap[0];
+            heap[0]          = heap.last();
+            indices[heap[0]] = 0;
+            indices[x]       = -1;
+            heap.pop();
+            if (heap.size() > 1) percolateDown(0);
+            return x; 
+        }
+
+
+        // Rebuild the heap from scratch, using the elements in 'ns':
+        void build(vec<int>& ns){
+            for (int i = 0; i < heap.size(); i++)
+                indices[heap[i]] = -1;
+            heap.clear();
+
+            for (int i = 0; i < ns.size(); i++){
+                indices[ns[i]] = i;
+                heap.push(ns[i]); }
+
+            for (int i = heap.size() / 2 - 1; i >= 0; i--)
+                percolateDown(i);
+        }
+
+        void clear(bool dealloc = false){ 
+            for (int i = 0; i < heap.size(); i++)
+                indices[heap[i]] = -1;
+            heap.clear(dealloc); 
+        }
 };
 
 

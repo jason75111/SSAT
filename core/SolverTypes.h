@@ -130,13 +130,14 @@ class Clause{
         unsigned has_extra : 1;
         unsigned reloced   : 1;
         unsigned size      : 27;
+        unsigned appended  : 1;
     }header;
     
     union{ 
-    	Lit lit; 
-    	float act; 
+    	Lit      lit; 
+    	float    act; 
     	uint32_t abs; 
-    	CRef rel; 
+    	CRef     rel; 
     }data[0];
 
     friend class ClauseAllocator;
@@ -149,6 +150,7 @@ class Clause{
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
+        header.appended  = 0;
 
         for(int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -183,6 +185,8 @@ class Clause{
         bool         reloced     ()      const   { return header.reloced; }
         CRef         relocation  ()      const   { return data[0].rel; }
         void         relocate    (CRef c)        { header.reloced = 1; data[0].rel = c; }
+        void         append      (uint32_t a)    { header.appended = a; }
+        bool         appended    ()      const   { return header.appended; }
 
         // NOTE: somewhat unsafe to change the clause in-place! Must manually call 'calcAbstraction' afterwards for
         //       subsumption operations to behave correctly.
@@ -245,9 +249,10 @@ class ClauseAllocator : public RegionAllocator<uint32_t>{
         }
 
         void reloc(CRef& cr, ClauseAllocator& to){
+
             Clause& c = operator[](cr);
               
-            if (c.reloced()) { cr = c.relocation(); return; }
+            if(c.reloced()) { cr = c.relocation(); return; }
               
             cr = to.alloc(c, c.learnt());
             c.relocate(cr);
@@ -255,8 +260,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>{
             // Copy extra data-fields: 
             // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
             to[cr].mark(c.mark());
-            if (to[cr].learnt())         to[cr].activity() = c.activity();
-            else if (to[cr].has_extra()) to[cr].calcAbstraction();
+            if(to[cr].learnt())         to[cr].activity() = c.activity();
+            else if(to[cr].has_extra()) to[cr].calcAbstraction();
         }
 };
 

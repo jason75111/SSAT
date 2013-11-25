@@ -27,6 +27,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "utils/Options.h"
 #include "core/SolverTypes.h"
 
+#include <list>
+
 
 namespace Minisat{
 
@@ -83,6 +85,9 @@ class Solver{
         int     nVars      ()      const;       // The current number of variables.
         int     nFreeVars  ()      const;
 
+        double  quality();
+        void    printVarStat();
+
         // Resource contraints:
         void    setConfBudget(int64_t x);
         void    setPropBudget(int64_t x);
@@ -112,6 +117,7 @@ class Solver{
         bool      rnd_pol;            // Use random polarities for branching heuristics.
         bool      rnd_init_act;       // Initialize variable activities with a small random value.
         double    garbage_frac;       // The fraction of wasted memory allowed before a garbage collection is triggered.
+        int       required_models;    // The number of models required.
 
         int       restart_first;      // The initial restart limit.                                                                (default 100)
         double    restart_inc;        // The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
@@ -121,9 +127,17 @@ class Solver{
         int       learntsize_adjust_start_confl;
         double    learntsize_adjust_inc;
 
+        int       BCPGuide_T;         // Threshold value of BCPGuide hueristic.
+
         // Statistics: (read-only member variable)
         uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
         uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
+        uint64_t num_models;     // The number of models already got (currently solving num_models+1).
+        int      bcp_conflict;   // Count conflicts after first propagation().
+        double   CBH_build_time;
+        double   CBH_reloc_time;
+        double   CBH_update_time;
+        double   vRandLoc_time;
 
     protected:
 
@@ -151,6 +165,12 @@ class Solver{
             VarOrderLt(const vec<double>&  act) : activity(act) { }
         };
 
+        struct VarStatCell{
+            int pStat[2];
+            int& operator [] (int i) { assert(i >= 0); assert(i<= 1); return pStat[i]; }
+            VarStatCell() { pStat[0]=0; pStat[1]=0; }
+        };
+
         // Solver state:
         bool                ok;                // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
         vec<CRef>           clauses;           // List of problem clauses.
@@ -173,8 +193,35 @@ class Solver{
         Heap<VarOrderLt>    order_heap;        // A priority queue of variables ordered with respect to the variable activity.
         double              progress_estimate; // Set by 'search()'.
         bool                remove_satisfied;  // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
-
         ClauseAllocator     ca;
+
+        // DiversekSet glgorithms help data
+        vec<VarStatCell>    varStat;           // Statistics of variable polarity; varStat[var][0/1] returns the # of models var has neg/pos polarity.
+        vec<Lit>            BCPGuide_partal_assigns; // Partial assignments during BCP-guide for calculating diversity.
+        bool                okBCP;
+        int                 BCPCounts;
+
+        vec<vec<CRef> >     fromClause;        // Stores the clauses of each variable.
+        bool                vbs;               // Variable-based method.
+        std::list<CRef>     CBH_list;          // CBH clauses list, containts both problem and learnt clauses.
+        Heap<VarOrderLt>    CBH_order_heap;    // A priority queue of variables ordered with respect to the CBH variable activity.
+        vec<CRef>           respons_clauses;   // Conflict-responsible clauses to be placed at the head of CBH_list.
+        int                 lcl_decay_counts;  // Decay times of lcl.
+
+        vec<double>         iosv;          // Initial variable overall score for CBH.
+        vec<double>         ios_n;         // Initial overall score of negative literals.
+        vec<double>         ios_p;         // Initial overall score of positive literals.
+        vec<double>         igs_n;         // Initial global score of negative literals.
+        vec<double>         igs_p;         // Initial global score of positive literals.
+        vec<double>         ils_n;         // Initial local score of negative literals.
+        vec<double>         ils_p;         // Initial local score of positive literals.
+
+        vec<double>         lcv;           // Local contribution of variable.
+        vec<double>         lcl_n;         // Local contribution of negative literals.
+        vec<double>         lcl_p;         // Local contribution of positive literals.
+        vec<double>         gcv;           // Global contribution of variable.
+        vec<double>         gcl_n;         // Global contribution of negative literals.
+        vec<double>         gcl_p;         // Global contribution of positive literals.
 
         // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
         // used, exept 'seen' wich is used in several places.
@@ -208,6 +255,24 @@ class Solver{
         void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
         void     removeSatisfied  (vec<CRef>& cs);                                         // Shrink 'cs' to contain only non-satisfied clauses.
         void     rebuildOrderHeap ();
+
+        // DiversekSet Algorithms
+        int      absPotential     (Var var);
+        bool     pGuide           (Var var);
+        Lit      vGuideLoc        ();
+        Lit      vRandLoc         ();
+        double   BCPQuality       ();
+        void     varStatUpdate    ();                             // Update variable polarity statistics.
+
+        void     CBH_init         ();                             // Initialize CBH clause lst.
+        void     insertCBHVarOrder(Var x);                        // Insert a variable in the CBH decision order priority queue.
+        void     CBH_reloc        (CRef cr, CRef newCr);          // Used by ClauseAllocator.reloc();
+        void     CBH_update       (CRef confl);                   // Update CBH clause lst.
+        void     iosvUpdate       (Lit p);                        // Update ils and ios of literal.
+        void     lcvUpdate        (Lit p);                        // Update lcl and lcv of literal.
+        void     gcvUpdate        (Lit p);                        // Update gcl and gcv of literal.
+        void     lclDecay         ();                             // Half the scores of lcl occasionally.
+        char     v2c              (Var v);                        // Just for test
 
         // Maintaining Variable/Clause activity:
         void     varDecayActivity ();                             // Decay all variables with the specified factor. Implemented by increasing the 'bump' value instead.
@@ -258,6 +323,10 @@ inline int  Solver::level (Var x) const { return vardata[x].level; }
 
 inline void Solver::insertVarOrder(Var x) {
     if(!order_heap.inHeap(x) && decision[x]) order_heap.insert(x); 
+}
+
+inline void Solver::insertCBHVarOrder(Var x) {
+    if(!CBH_order_heap.inHeap(x) && decision[x]) CBH_order_heap.insert(x);
 }
 
 inline void Solver::varDecayActivity() { var_inc *= (1 / var_decay); }

@@ -1,0 +1,44 @@
+
+
+    Lit gLit;
+    int score1, score2;
+
+    for(;;){
+        gLit = trail[qhead];
+        BCPlevel = decisionLevel();         // Record current level for cancel
+        BCPGuide_partal_assigns.clear();
+        BCPGuide_partal_assigns.push(gLit); // Partial assigns will be updated during propagate()
+        CRef confl = propagate();
+        // -----------------------------------------------------
+        // BCP Guide
+        //
+        if(BCPGuideCount < BCPGuide_T && confl == CRef_Undef){ // Not conflict and under guide threshold
+            score1 = BCPQuality();
+            cancelUntil(BCPlevel);
+
+            // Reset partial assigns
+            BCPGuide_partal_assigns.clear();
+            BCPGuide_partal_assigns.push(gLit);
+
+            // Check opposite polarity
+            uncheckedEnqueue(~gLit);
+            confl = propagate();
+            if(confl == CRef_Undef){ // Not conflict
+                score2 = BCPQuality();
+                if(score1 > score2)){
+                    cancelUntil(BCPlevel);
+                    uncheckedEnqueue(p);
+                    confl = propagate();
+                }
+            }
+            BCPGuideCount++;
+        }
+        // -----------------------------------------------------
+
+        if(confl != CRef_Undef){
+            StartToAnalyze:
+        }
+        else{
+                
+        }
+    }
